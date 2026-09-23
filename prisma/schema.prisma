@@ -1,0 +1,78 @@
+// Prisma schema for the rental-house finder (Jamundí + sur de Cali).
+// SQLite for a local, single-user app. JSON-ish fields are stored as String
+// (JSON.stringify) to stay portable across SQLite/Prisma versions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// A normalized rental listing. Nullable wherever a source does not expose a field.
+model Listing {
+  id              String   @id @default(cuid())
+  source          String // adapter id, e.g. "bienco"
+  sourceListingId String // stable id within the source
+  url             String
+  title           String?
+
+  barrio          String?
+  conjunto        String?
+  city            String?
+  address         String?
+  lat             Float?
+  lng             Float?
+  geocodePrecision String? // rooftop | street | barrio_centroid | city | source
+
+  areaM2          Float?
+  bedrooms        Int?
+  bathrooms       Int?
+  parking         Int?
+
+  price           Float?
+  admin           Float?
+  estrato         Int?
+  currency        String   @default("COP")
+
+  agency          String?
+  phone           String?
+  hasWhatsapp     Boolean  @default(false)
+
+  // Cross-source dedup: JSON array of source ids that map to this canonical record.
+  sources         String?
+  rawJson         String? // original payload for debugging / re-parse
+
+  firstSeen       DateTime @default(now())
+  lastSeen        DateTime @updatedAt
+  isActive        Boolean  @default(true)
+  lastVerifiedAt  DateTime?
+
+  @@unique([source, sourceListingId])
+  @@index([city])
+  @@index([isActive])
+}
+
+/// Cache of geocoding results so we geocode each query at most once.
+model GeocodeCache {
+  id        String   @id @default(cuid())
+  query     String   @unique // normalized address / "barrio, city" query
+  lat       Float
+  lng       Float
+  precision String // rooftop | street | barrio_centroid | city
+  provider  String // google | nominatim | source | manual
+  placeId   String? // Google place_id (storable indefinitely)
+  createdAt DateTime @default(now())
+}
+
+/// One crawl/refresh run, for logging + freshness tracking.
+model Run {
+  id         String    @id @default(cuid())
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  status     String    @default("running") // running | completed | failed
+  params     String? // JSON of crawl params
+  stats      String? // JSON of per-source counts, errors
+}
