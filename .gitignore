@@ -41,7 +41,7 @@ npm-debug.log*
 /.mimosa/
 /.zcode/
 /.video_agent/
+/samples/
 /docs/
 /backups/
-/item.html
 *.tsbuildinfo
